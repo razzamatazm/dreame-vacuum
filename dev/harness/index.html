@@ -1,0 +1,62 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Dreame Open Card harness</title>
+    <style>
+      body {
+        margin: 0;
+        padding: 12px;
+        background: #f0f2f5;
+        font-family: Roboto, system-ui, sans-serif;
+        --primary-color: #03a9f4;
+        --primary-text-color: #212121;
+        --secondary-text-color: #727272;
+        --divider-color: rgba(0, 0, 0, 0.12);
+        --card-background-color: #fff;
+        --secondary-background-color: #e5e5e5;
+      }
+      #wrap {
+        max-width: var(--w, 480px);
+        margin: 0 auto;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="wrap"></div>
+    <script type="module">
+      // Usage: index.html?page=<id>&params=<json>&config=<json>&w=<px>
+      import { createMockHass } from "./mock-hass.js";
+      const q = new URLSearchParams(location.search);
+      document.documentElement.style.setProperty("--w", `${q.get("w") || 480}px`);
+      window.__ready = false;
+      try {
+        await import("/custom_components/dreame_vacuum/www/dreame-open-card/card.js");
+        const hass = await createMockHass();
+        // Optional fixtures: ?fixture=name1,name2 -> fixtures/<name>.js exporting apply(hass)
+        for (const name of (q.get("fixture") || "").split(",").filter(Boolean)) {
+          (await import(`./fixtures/${name}.js`)).apply(hass);
+        }
+        window.__hass = hass;
+        const card = document.createElement("dreame-open-card");
+        card.setConfig({ entity: "vacuum.dreame_l10s", ...JSON.parse(q.get("config") || "{}") });
+        card.hass = hass;
+        document.getElementById("wrap").appendChild(card);
+        window.__card = card;
+        // Push a fresh hass object (as HA does) after state edits: window.__update(fn)
+        window.__update = (fn) => {
+          const next = { ...window.__hass, states: { ...window.__hass.states } };
+          fn(next);
+          window.__hass = next;
+          card.hass = next;
+        };
+        const page = q.get("page");
+        if (page && page !== "home") card.navigate(page, JSON.parse(q.get("params") || "{}"));
+      } catch (err) {
+        console.error("harness failed", err);
+      }
+      window.__ready = true;
+    </script>
+  </body>
+</html>
