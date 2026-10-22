@@ -274,6 +274,14 @@ export const prettify = (s) =>
     .replace(/_/g, " ")
     .replace(/\b\w/g, (c) => c.toUpperCase());
 
+/** "MuMu TuTu  MuMu TuTu" -> "MuMu TuTu": entity named after its device. */
+export const dedupeName = (s) => {
+  const words = String(s ?? "").trim().split(/\s+/);
+  const half = words.length / 2;
+  const a = words.slice(0, half).join(" ");
+  return Number.isInteger(half) && half > 0 && a === words.slice(half).join(" ") ? a : String(s ?? "");
+};
+
 /** Weekday bitmask helpers. Bit 0 = Sunday ... bit 6 = Saturday (Dreame convention). */
 export const WEEKDAYS = ["sun", "mon", "tue", "wed", "thu", "fri", "sat"];
 
