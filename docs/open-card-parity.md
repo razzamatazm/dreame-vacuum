@@ -20,8 +20,8 @@ that is implemented but depends on a device detail the source doesn't pin down.
 ## Home screen
 | Feature | Backing API | Status |
 |---|---|---|
-| Live map image | `map.entity_picture` | done |
-| Status line: cleaned area, cleaning time, battery (charging / low) | `ent:sensor.cleaned_area/cleaning_time`, `vac.battery/charging` | done |
+| Live map image; card-drawn compact room labels (hide the server ones with integration option `hidden_map_objects`: icon, name, name_background, order; card side: `room_labels` in hidden_card_objects) | `map.entity_picture`, `map.rooms` | done |
+| Header: de-duplicated name with localized status beside it (wash-station status while washing/drying). Status line: cleaned area, cleaning time, battery (charging / low) | `ent:sensor.cleaned_area/cleaning_time`, `vac.battery/charging` | done |
 | Progress bar | `ent:sensor.cleaning_progress` | done |
 | Imperial area (ft²), localized time units | `hass.config.unit_system` | done |
 | Main menu: Locate, Cleaning/Cruising History, Accessory Usage (badge < 30%), Cleaning Sequence (CleanGenius), Remote Control, Map Management, Device Settings | see sections | done |
@@ -30,8 +30,8 @@ that is implemented but depends on a device detail the source doesn't pin down.
 | Feature | Backing API | Status |
 |---|---|---|
 | Global cleaning; auto-reset to Global when a task finishes (manual Stop keeps mode) | `vacuum.start` | done |
-| Room cleaning in tap order | `svc:vacuum_clean_segment` | done |
-| Zone cleaning: multiple zones, draw, move, resize, delete | `svc:vacuum_clean_zone` | done |
+| Room cleaning in tap order; customized cleaning sends empty lists so per-room settings apply | `svc:vacuum_clean_segment` | done, verified live |
+| Zone cleaning: multiple zones, draw, move, resize, delete | `svc:vacuum_clean_zone` | done, verified live |
 | Spot cleaning, 1.5 m squares; spot from obstacle popup | `svc:vacuum_clean_spot` | done |
 | Go to point, predefined points | `svc:vacuum_goto`, `map.predefined_points` | done |
 | Selector locked during a task; active-task icons (scheduled, shortcut) | `vac.started/segment_cleaning/zone_cleaning/spot_cleaning/cruising/shortcut_task/startup_method` | done |
@@ -83,7 +83,7 @@ that is implemented but depends on a device detail the source doesn't pin down.
 | Room name (type or custom), visibility, floor material (+ wood direction), merge (real neighbors), split; bulk save; discard prompt | `svc:vacuum_set_segment_type/set_hidden_segments/set_floor_material/merge_segments/split_segments` | done |
 | Walls and doors edit, reset walls | `mapData.walls/doors`, `svc:vacuum_set_walls` | done (saved maps that publish walls) |
 | LiDAR / floor-plan display toggle | server-rendered image only | n/a (no per-request render option) |
-| Object editing: no-go, no-mop, virtual wall | `svc:vacuum_set_restricted_zone` | done |
+| Object editing: no-go, no-mop, virtual wall | `svc:vacuum_set_restricted_zone` | done, verified live (no-go add, save, remove) |
 | Carpets square / round / deleted overrides | `svc:vacuum_set_carpet_area` | done |
 | Passable / impassable thresholds, ramps; virtual thresholds | `svc:vacuum_set_threshold`, `svc:vacuum_set_virtual_threshold` | done |
 | Curtains | `svc:vacuum_set_curtain` | done |
@@ -104,23 +104,41 @@ that is implemented but depends on a device detail the source doesn't pin down.
 ## Device settings
 | Feature | Backing API | Status |
 |---|---|---|
-| Scheduled cleanup: list, toggle, edit time + days, new, delete; DnD conflict warning | `vac.schedule`, `ws:raw` + `prop:schedule` (raw merge keeps untouched fields), `act:delete_scheduled_task` | done, live-test (weekday order of `repeats`) |
+| Scheduled cleanup: list, toggle, edit time + days, new, delete; DnD conflict warning | `vac.schedule`, `ws:raw` + `prop:schedule` (raw merge keeps untouched fields), `act:delete_scheduled_task` | done, verified live |
 | Shortcuts: list, run, rename, delete, view tasks, reload | `vac.shortcuts`, `svc:vacuum_start_shortcut/rename_shortcut/delete_shortcut` | done (create: n/a, no API; same as DVC) |
 | Audio | `ent:*` | done (voice pack change: n/a, same as DVC) |
 | Carpet (global), Mopping, Camera & Obstacle, Battery, More functions | `ent:*` | done |
-| DnD: multi-period list or single period, DnD side switches | `vac.dnd`, `ws:raw` + `prop:dnd_task`, `act:delete_dnd_task`, `ent:switch.dnd`, `ent:time.dnd_*` | done, live-test (weekday bit order) |
+| DnD: multi-period list or single period (time window only; the app has no DnD days), DnD side switches | `vac.dnd`, `ws:raw` + `prop:dnd_task`, `act:delete_dnd_task`, `ent:switch.dnd`, `ent:time.dnd_*` | done, verified live |
 | Device info: hardware, network (SSID, BSSID, RSSI, IP, MAC), firmware, time zone | `vac.ap`, `vac.firmware_version`, device registry | done (time zone shown is HA's) |
 
 ## Other
 | Feature | Backing API | Status |
 |---|---|---|
-| Remote control: two analog sliders, keyboard (WASD/arrows, Shift, Ctrl), haptics, landscape layout, live map, Resume / Return; reverse capped at half speed | `svc:vacuum_remote_control_move_step` | done, live-test (rotation sign) |
+| Remote control: two analog sliders, keyboard (WASD/arrows, Shift, Ctrl), haptics, landscape layout, live map, Resume / Return; reverse capped at half speed | `svc:vacuum_remote_control_move_step` | done, verified live; banner while the base washes (the integration refuses steps then) |
 | Accessory usage: 17 consumables, % and time left, reset | `ent:sensor.*_left/*_time_left`, `ent:button.reset_*`, `svc:vacuum_reset_consumable` | done |
 | Localization | integration `entity_component.frontend_*` + entity translations (40 languages) | done (a few labels without integration keys are English) |
 | Advanced config: hidden_card_objects, task_types, shortcut scripts, left-handed | card config + visual editor | done |
 
-## Needs one test on a real robot
-1. Schedule `repeats`: which end is Sunday (`REPEATS_SUNDAY_FIRST` in pages/schedule.js).
-2. DnD `wk` bit order (`wkToDays` in pages/dnd.js, bit 0 = Sunday assumed).
-3. Remote rotation sign (`ROTATE_RIGHT` in pages/remote.js).
-4. Furniture `modified` flag semantics (pages/object-edit.js).
+## Live test results (2026-10-22, firmware 1804, cloud connection)
+Run from the card on a real robot via the fork release on HACS.
+
+| Flow | Result |
+|---|---|
+| Room clean (Hallway) | Robot pre-washed, drove off, `active_segments: [4]`; Stop and Return worked |
+| Zone clean (2 m square) | Map `active_areas` matched the card zone exactly; Stop, Return, docked |
+| Schedule edit | Added Wed to an app-made Mon task: raw `1-1-03:00-0100000-1-0-0-146-0` became `1-1-03:00-0101000-1-0-0-146-0`, other fields byte-identical |
+| DnD edit | First write was silently ignored by the robot (`en` sent as 0/1). Fixed to JSON booleans, as the app and `set_dnd_tasks` write; then accepted |
+| Remote | Fine forward moved the robot along its heading; right lowered the heading (272 to 265), left raised it (265 to 50). Turn sizes for equal 1 s nudges were uneven (map lag or overrun) |
+| Restricted zone | `vacuum_backup_map` first (recovery list gained "Map2 (Backup)"); 1 m no-go saved, shown on the map, removed with a normal edit and save |
+
+How the unknowns were settled:
+1. Schedule `repeats`: the Dreame app wrote `0100000` for Monday only, so index 0 is Sunday. `REPEATS_SUNDAY_FIRST = true` stays. The same raw string confirmed the new-task guesses: status `1` for enabled, once field `1` for a repeating task, options `0`.
+2. DnD `wk`: moot. The app only sets a time window and always writes `wk` 127, so the card no longer shows a day picker and preserves `wk` as stored.
+3. Remote rotation: map frame is +x right, +y up (rotation 0) and the heading follows cos/sin, so a falling angle is a clockwise (right) turn. `ROTATE_RIGHT = -1` stays.
+4. Furniture `modified`: still open, and not settleable on the public API. The integration's parser never reads the device's flag (dreame/map.py around line 5066 drops it), so every furniture save writes 0 for untouched items whatever the card does. The card sends 1 for items it adds or edits.
+
+Not exercised: deleted-carpet ids (the new map has no carpets).
+
+Notes from the session:
+- The Dreame cloud dropped the robot twice (error 80001, "device may be offline"); once it stopped short of the dock and went quiet until picked up. Not card related.
+- Remote steps fail while the base washes the mop; drying does not block them.
