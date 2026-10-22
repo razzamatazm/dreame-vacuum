@@ -126,7 +126,7 @@ Run from the card on a real robot via the fork release on HACS.
 |---|---|
 | Room clean (Hallway) | Robot pre-washed, drove off, `active_segments: [4]`; Stop and Return worked |
 | Zone clean (2 m square) | Map `active_areas` matched the card zone exactly; Stop, Return, docked |
-| Schedule edit | Added Wed to an app-made Mon task: raw `1-1-03:00-0100000-1-0-0-146-0` became `1-1-03:00-0101000-1-0-0-146-0`, other fields byte-identical |
+| Schedule edit | Added Wed to an app-made Mon task: raw `1-1-03:00-0100000-1-0-0-146-0` became `1-1-03:00-0101000-1-0-0-146-0`, other fields byte-identical; the Dreame app then showed Mon + Wed. Toggling the task off from the list also landed |
 | DnD edit | First write was silently ignored by the robot (`en` sent as 0/1). Fixed to JSON booleans, as the app and `set_dnd_tasks` write; then accepted |
 | Remote | Fine forward moved the robot along its heading; right lowered the heading (272 to 265), left raised it (265 to 50). Turn sizes for equal 1 s nudges were uneven (map lag or overrun) |
 | Restricted zone | `vacuum_backup_map` first (recovery list gained "Map2 (Backup)"); 1 m no-go saved, shown on the map, removed with a normal edit and save |
