@@ -118,9 +118,15 @@ export function lineCrossesBox(line, box) {
   return true;
 }
 
-/** Handle circle in image space. */
-export const handle = (tf, u, x, y, h, extra = "") =>
-  svg`<circle class="handle ${extra}" data-kind="handle" data-h=${h} cx=${tf.toMap(x, y)[0]} cy=${tf.toMap(x, y)[1]} r=${9 * u}></circle>`;
+/** Handle at image point (mx, my): a small visible dot over a finger-sized hit area. */
+export const handleAt = (u, mx, my, h, extra = "") =>
+  svg`<g data-kind="handle" data-h=${h}>
+    <circle class="handle-hit" cx=${mx} cy=${my} r=${13 * u}></circle>
+    <circle class="handle ${extra}" cx=${mx} cy=${my} r=${5 * u}></circle>
+  </g>`;
+
+/** Handle at vacuum point (x, y). */
+export const handle = (tf, u, x, y, h, extra = "") => handleAt(u, ...tf.toMap(x, y), h, extra);
 
 /** Rect polygon (rotated like Area.to_img). */
 export const rectShape = (tf, g, cls, data = {}) =>
@@ -311,7 +317,12 @@ const OVERLAY_CSS = `
   .handle {
     fill: #fff;
     stroke: var(--doc-accent);
-    stroke-width: 3;
+    stroke-width: 2;
+    vector-effect: non-scaling-stroke;
+    pointer-events: none;
+  }
+  .handle-hit {
+    fill: transparent;
     cursor: grab;
   }
   .handle.rot {
