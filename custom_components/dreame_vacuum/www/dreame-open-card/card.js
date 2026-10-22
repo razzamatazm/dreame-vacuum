@@ -255,6 +255,7 @@ class DreameOpenCardEditor extends LitElement {
             options: [
               "title",
               "status",
+              "room_labels",
               "progress_bar",
               "controls",
               "menu",
