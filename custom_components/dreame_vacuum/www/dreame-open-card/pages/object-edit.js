@@ -34,6 +34,7 @@ import {
   tooShortLine,
   roomAt,
   handle,
+  handleAt,
   rectShape,
   ellipseShape,
   lineShape,
@@ -654,10 +655,10 @@ class ObjectEdit extends LitElement {
         [-w / 2, h / 2],
       ].forEach(([lx, ly], n) => {
         const [x, y] = at(lx, ly);
-        parts.push(svg`<circle class="handle" data-kind="handle" data-h=${n} cx=${x} cy=${y} r=${9 * u}></circle>`);
+        parts.push(handleAt(u, x, y, n));
       });
       const [rx, ry] = at(0, -h / 2 - 26 * u);
-      parts.push(svg`<circle class="handle rot" data-kind="handle" data-h="rot" cx=${rx} cy=${ry} r=${9 * u}></circle>`);
+      parts.push(handleAt(u, rx, ry, "rot", "rot"));
     }
     return parts;
   }
