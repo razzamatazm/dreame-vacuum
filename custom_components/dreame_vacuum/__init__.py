@@ -6,10 +6,13 @@ from homeassistant.const import Platform
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers import config_validation as cv
 from homeassistant.helpers.typing import ConfigType
+import logging
 import warnings
 from importlib import import_module
 from .const import DOMAIN
 from . import open_card
+
+_LOGGER = logging.getLogger(__name__)
 
 ## Dynamically load frontend.py so that it can be easily stripped
 try:
@@ -50,7 +53,10 @@ CONFIG_SCHEMA = cv.config_entry_only_config_schema(DOMAIN)
 async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
     """Set up the Dreame Vacuum integration."""
     if hass.config_entries.async_entries(DOMAIN):
-        await open_card.setup(hass)
+        try:
+            await open_card.setup(hass)
+        except Exception:  # never let the card take the integration down
+            _LOGGER.exception("Dreame Open Card setup failed")
         if frontend is not None:
             await frontend.setup(hass)
     return True

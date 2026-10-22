@@ -35,6 +35,11 @@ export function mergeDndRaw(raw, tasks) {
   if (!Array.isArray(items)) return dndToJson(tasks);
   const ours = JSON.parse(dndToJson(tasks));
   const byId = new Map(items.map((it) => [String(it.id), it]));
+  // The attribute is sorted by start time; keep the device's own order and
+  // append new tasks, so an untouched list round-trips in place.
+  const rank = new Map(items.map((it, i) => [String(it.id), i]));
+  const pos = (o) => rank.get(String(o.id)) ?? Infinity;
+  ours.sort((a, b) => pos(a) - pos(b));
   return JSON.stringify(ours.map((o) => ({ ...(byId.get(String(o.id)) || {}), ...o })));
 }
 
