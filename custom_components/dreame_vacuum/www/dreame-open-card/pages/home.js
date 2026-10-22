@@ -557,8 +557,11 @@ class DocHome extends LitElement {
         const wPill = wText + pad * 2 + dot;
         const hPill = fs * 2.1;
         const fill = sel ? "var(--doc-accent)" : live ? "rgba(3,169,244,.8)" : "rgba(20,20,20,.62)";
+        // Keep the pill inside the image so edge rooms are not clipped.
+        const lx = Math.max(2 * u, Math.min(w - wPill - 2 * u, x - wPill / 2));
+        const ly = Math.max(2 * u, Math.min(h - hPill - 2 * u, y - hPill / 2));
         parts.push(svg`<g data-kind=${picking ? "room" : "room-label"} data-room=${r.id}
-            transform="translate(${x - wPill / 2} ${y - hPill / 2})" style=${picking ? "cursor:pointer" : "pointer-events:none"}>
+            transform="translate(${lx} ${ly})" style=${picking ? "cursor:pointer" : "pointer-events:none"}>
           <rect width=${wPill} height=${hPill} rx=${hPill / 2} fill=${fill}
             stroke=${sel ? "#fff" : "rgba(255,255,255,.35)"} stroke-width="1" vector-effect="non-scaling-stroke"></rect>
           ${picking
