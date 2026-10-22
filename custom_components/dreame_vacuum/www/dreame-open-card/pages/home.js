@@ -178,28 +178,40 @@ class DocHome extends LitElement {
         gap: 8px;
         padding: 6px 12px 0 4px;
         min-height: 40px;
+        flex-wrap: wrap;
       }
       .toolbar.left {
         flex-direction: row-reverse;
         padding: 6px 4px 0 12px;
       }
       .toolbar .hint {
-        flex: 1;
+        flex: 1 1 140px;
         padding: 0 0 0 12px;
       }
       .fabs {
         display: flex;
         gap: 6px;
       }
+      .fabs {
+        flex-wrap: wrap;
+        justify-content: flex-end;
+      }
       .fab {
-        width: 38px;
-        height: 38px;
-        min-height: 38px;
-        padding: 0;
-        border-radius: 50%;
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        height: 34px;
+        min-height: 34px;
+        padding: 0 12px 0 10px;
+        border-radius: 17px;
         background: var(--doc-surface-2);
         border: none;
+        font-size: 0.85em;
         font-weight: 500;
+        white-space: nowrap;
+      }
+      .fab ha-icon {
+        --mdc-icon-size: 18px;
       }
       .fab.on {
         background: var(--doc-accent);
@@ -526,20 +538,37 @@ class DocHome extends LitElement {
       }
     }
 
-    if (mode === "rooms") {
+    // Room labels: one compact pill per room. In Rooms mode the pill is the
+    // tap target and carries a check dot with the cleaning order.
+    if (mode === "rooms" || !this._hidden.has("room_labels")) {
       const active = new Set(this._vac.active_segments || []);
+      const picking = mode === "rooms";
       for (const r of ctx.rooms()) {
         if (r.x == null) continue;
         const [x, y] = pt(r.x, r.y);
         const order = this._rooms.indexOf(r.id);
-        const sel = order >= 0;
-        const fs = 13 * u;
-        parts.push(svg`<g data-kind="room" data-room=${r.id} transform="translate(${x} ${y})" style="cursor:pointer">
-          <circle r=${fs * 1.15} fill=${sel ? "var(--doc-accent)" : active.has(r.id) ? "rgba(3,169,244,.6)" : "rgba(0,0,0,.45)"}
-            stroke="#fff" stroke-width="2" vector-effect="non-scaling-stroke"></circle>
-          <text dy="0.35em" font-size=${fs} fill="#fff" text-anchor="middle" style="pointer-events:none">${sel ? order + 1 : "+"}</text>
-          <text dy=${fs * 2.5} font-size=${fs * 0.85} fill="#fff" text-anchor="middle" paint-order="stroke" stroke="rgba(0,0,0,.6)" stroke-width="3"
-            style="pointer-events:none">${ctx.roomName(r)}</text>
+        const sel = picking && order >= 0;
+        const live = active.has(r.id) && this._started;
+        const name = ctx.roomName(r);
+        const fs = 11 * u;
+        const dot = picking ? fs * 1.7 : 0;
+        const pad = fs * 0.75;
+        const wText = name.length * fs * 0.56;
+        const wPill = wText + pad * 2 + dot;
+        const hPill = fs * 2.1;
+        const fill = sel ? "var(--doc-accent)" : live ? "rgba(3,169,244,.8)" : "rgba(20,20,20,.62)";
+        parts.push(svg`<g data-kind=${picking ? "room" : "room-label"} data-room=${r.id}
+            transform="translate(${x - wPill / 2} ${y - hPill / 2})" style=${picking ? "cursor:pointer" : "pointer-events:none"}>
+          <rect width=${wPill} height=${hPill} rx=${hPill / 2} fill=${fill}
+            stroke=${sel ? "#fff" : "rgba(255,255,255,.35)"} stroke-width="1" vector-effect="non-scaling-stroke"></rect>
+          ${picking
+            ? svg`<circle cx=${pad * 0.6 + dot / 2} cy=${hPill / 2} r=${fs * 0.72} fill=${sel ? "#fff" : "none"}
+                  stroke="#fff" stroke-width="1.5" vector-effect="non-scaling-stroke"></circle>
+                <text x=${pad * 0.6 + dot / 2} y=${hPill / 2} dy="0.35em" font-size=${fs * 0.8} font-weight="600" text-anchor="middle"
+                  fill="var(--doc-accent)" style="pointer-events:none">${sel ? order + 1 : ""}</text>`
+            : nothing}
+          <text x=${pad + dot + wText / 2} y=${hPill / 2} dy="0.35em" font-size=${fs} font-weight="500" fill="#fff" text-anchor="middle"
+            style="pointer-events:none">${name}</text>
         </g>`);
       }
     }
@@ -766,26 +795,28 @@ class DocHome extends LitElement {
     const mode = this._mode;
     if (mode === "goto") return nothing;
     const fabs = [];
-    const fab = (icon, title, run, extra = "") =>
-      fabs.push(html`<button class="fab ${extra}" title=${title} @click=${run}><ha-icon icon=${icon}></ha-icon></button>`);
+    // Labelled chips: the full name stays in the tooltip, the chip shows a short one.
+    const fab = (icon, title, label, run, extra = "") =>
+      fabs.push(html`<button class="fab ${extra}" title=${title} @click=${run}>
+        <ha-icon icon=${icon}></ha-icon>${label ? html`<span>${label}</span>` : nothing}
+      </button>`);
 
     if (mode === "zone" || mode === "spot") {
-      fab("mdi:plus", ctx.t("action", "add_cleaning_area", "Add cleaning area"), () => this._addArea());
+      fab("mdi:plus", ctx.t("action", "add_cleaning_area", "Add cleaning area"), mode === "zone" ? "Zone" : "Spot", () => this._addArea());
     }
     const customized = ctx.st("switch", "customized_cleaning")?.state === "on";
     if (mode === "zone" || mode === "spot" || (mode === "rooms" && !customized)) {
-      fabs.push(html`<button class="fab" title=${ctx.t("action", "repeats", "Repeats")} @click=${() => (this._repeats = (this._repeats % 3) + 1)}>
-        ×${this._repeats}
-      </button>`);
+      fab("mdi:repeat", ctx.t("action", "repeats", "Repeats"), `×${this._repeats}`, () => (this._repeats = (this._repeats % 3) + 1));
     }
     if (ctx.config.shortcut_scripts?.length || this._shortcuts().length) {
-      if (!this._hidden.has("shortcuts")) fab("mdi:play-box-multiple-outline", ctx.t("action", "shortcuts", "Shortcuts"), () => (this._sheet = "shortcuts"));
+      if (!this._hidden.has("shortcuts"))
+        fab("mdi:play-box-multiple-outline", ctx.t("action", "shortcuts", "Shortcuts"), "Shortcuts", () => (this._sheet = "shortcuts"));
     }
     if (ctx.can("multi_floor_map") || (this._vac.maps || []).length > 1) {
-      fab("mdi:layers-outline", ctx.t("action", "map_management", "Map management"), () => ctx.navigate("maps"));
+      fab("mdi:layers-outline", ctx.t("action", "map_management", "Map management"), "Maps", () => ctx.navigate("maps"));
     }
-    if (this._hasDock()) fab("mdi:home-floor-g", ctx.t("action", "dock_settings", "Dock settings"), () => ctx.navigate("dock-settings"));
-    fab("mdi:tune-variant", ctx.t("action", "cleaning_settings", "Cleaning settings"), () => ctx.navigate("cleaning-settings"));
+    if (this._hasDock()) fab("mdi:home-floor-g", ctx.t("action", "dock_settings", "Dock settings"), "Station", () => ctx.navigate("dock-settings"));
+    fab("mdi:tune-variant", ctx.t("action", "cleaning_settings", "Cleaning settings"), "Settings", () => ctx.navigate("cleaning-settings"));
     return fabs;
   }
 
