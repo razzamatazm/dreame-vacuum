@@ -543,23 +543,34 @@ class DocHome extends LitElement {
     if (mode === "rooms" || !this._hidden.has("room_labels")) {
       const active = new Set(this._vac.active_segments || []);
       const picking = mode === "rooms";
+      const fs = 11 * u;
+      const dot = picking ? fs * 1.7 : 0;
+      const pad = fs * 0.75;
+      const hPill = fs * 2.1;
+      // Lay out every pill first: centred on the room, kept inside the image,
+      // then pushed down (or up at the bottom edge) past any pill it overlaps.
+      const placed = [];
       for (const r of ctx.rooms()) {
         if (r.x == null) continue;
         const [x, y] = pt(r.x, r.y);
+        const name = ctx.roomName(r);
+        const wText = name.length * fs * 0.56;
+        const wPill = wText + pad * 2 + dot;
+        const lx = Math.max(2 * u, Math.min(w - wPill - 2 * u, x - wPill / 2));
+        let ly = Math.max(2 * u, Math.min(h - hPill - 2 * u, y - hPill / 2));
+        const gap = 3 * u;
+        const hits = (y0) => placed.find((p) => lx < p.lx + p.wPill && p.lx < lx + wPill && y0 < p.ly + hPill + gap && p.ly < y0 + hPill + gap);
+        for (let i = 0, o; i < 6 && (o = hits(ly)); i++) {
+          const down = o.ly + hPill + gap;
+          ly = down + hPill <= h - 2 * u ? down : o.ly - hPill - gap;
+        }
+        placed.push({ r, name, wText, wPill, lx, ly });
+      }
+      for (const { r, name, wText, wPill, lx, ly } of placed) {
         const order = this._rooms.indexOf(r.id);
         const sel = picking && order >= 0;
         const live = active.has(r.id) && this._started;
-        const name = ctx.roomName(r);
-        const fs = 11 * u;
-        const dot = picking ? fs * 1.7 : 0;
-        const pad = fs * 0.75;
-        const wText = name.length * fs * 0.56;
-        const wPill = wText + pad * 2 + dot;
-        const hPill = fs * 2.1;
         const fill = sel ? "var(--doc-accent)" : live ? "rgba(3,169,244,.8)" : "rgba(20,20,20,.62)";
-        // Keep the pill inside the image so edge rooms are not clipped.
-        const lx = Math.max(2 * u, Math.min(w - wPill - 2 * u, x - wPill / 2));
-        const ly = Math.max(2 * u, Math.min(h - hPill - 2 * u, y - hPill / 2));
         parts.push(svg`<g data-kind=${picking ? "room" : "room-label"} data-room=${r.id}
             transform="translate(${lx} ${ly})" style=${picking ? "cursor:pointer" : "pointer-events:none"}>
           <rect width=${wPill} height=${hPill} rx=${hPill / 2} fill=${fill}
