@@ -3,7 +3,7 @@
  * object bubbles and the main menu. Mirrors https://dvc.tasshack.com/guide/home-screen
  */
 
-import { LitElement, html, svg, css, nothing, base, carpetsFromMapData } from "../core.js";
+import { LitElement, html, svg, css, nothing, base, carpetsFromMapData, prettify, dedupeName } from "../core.js";
 import { normRect, areaCorners, polyPoints } from "../map-view.js";
 import "../map-view.js";
 
@@ -98,6 +98,12 @@ class DocHome extends LitElement {
         overflow: hidden;
         text-overflow: ellipsis;
         white-space: nowrap;
+      }
+      .title .state {
+        margin-left: 8px;
+        font-size: 0.8em;
+        font-weight: 400;
+        color: var(--doc-muted);
       }
       .status {
         display: flex;
@@ -355,7 +361,7 @@ class DocHome extends LitElement {
     const hidden = this._hidden;
     const left = !!ctx.config.left_handed;
     return html`
-      ${hidden.has("title") && hidden.has("menu") ? nothing : this._renderHeader()}
+      ${hidden.has("title") && hidden.has("menu") && hidden.has("status") ? nothing : this._renderHeader()}
       ${hidden.has("status") ? nothing : this._renderStatus()}
       ${this._renderProgress()} ${this._renderBanners()}
       <div class="mapwrap">
@@ -378,15 +384,28 @@ class DocHome extends LitElement {
   _renderHeader() {
     const ctx = this.ctx;
     const hidden = this._hidden;
-    const title = ctx.config.title ?? ctx.vacuum.attributes.friendly_name ?? "";
+    const title = ctx.config.title ?? dedupeName(ctx.vacuum.attributes.friendly_name ?? "");
     return html`<div class="header">
-      <div class="title">${hidden.has("title") ? "" : title}</div>
+      <div class="title">
+        ${hidden.has("title") ? "" : title}
+        ${hidden.has("status") ? nothing : html`<span class="state">${this._statusText()}</span>`}
+      </div>
       ${hidden.has("menu")
         ? nothing
         : html`<button class="icon" title=${ctx.t("title", "menu", "Menu")} @click=${() => (this._sheet = "menu")}>
             <ha-icon icon="mdi:dots-vertical"></ha-icon>
           </button>`}
     </div>`;
+  }
+
+  // Localized robot status; while the base is washing or drying the mop that
+  // is what the robot is actually doing, so show the base's status instead.
+  _statusText() {
+    const ctx = this.ctx;
+    const v = this._vac;
+    const base = (v.washing || v.drying || v.returning_to_wash) && ctx.st("sensor", "self_wash_base_status");
+    const st = base || ctx.st("sensor", "status");
+    return st ? ctx.stateLabel(st) : prettify(v.status ?? ctx.vacuum.state);
   }
 
   _renderStatus() {
@@ -396,11 +415,9 @@ class DocHome extends LitElement {
     const charging = !!v.charging;
     const low = battery != null && battery <= 20 && !charging;
     const icon = ctx.vacuum.attributes.battery_icon || (low ? "mdi:battery-alert" : "mdi:battery");
-    const status = ctx.vacuum.attributes.status ?? ctx.stateLabel(ctx.st("sensor", "status") || ctx.vacuum);
     const area = ctx.st("sensor", "cleaned_area");
     const time = ctx.st("sensor", "cleaning_time");
     return html`<div class="status">
-      <span>${status}</span>
       ${this._started && area ? html`<span><ha-icon icon="mdi:texture-box"></ha-icon>${ctx.area(area.state)}</span>` : nothing}
       ${this._started && time ? html`<span><ha-icon icon="mdi:timer-outline"></ha-icon>${ctx.duration(time.state)}</span>` : nothing}
       ${battery != null
