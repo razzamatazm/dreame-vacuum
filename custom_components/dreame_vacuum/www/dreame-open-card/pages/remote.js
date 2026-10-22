@@ -271,8 +271,18 @@ class DocRemote extends LitElement {
     }
   }
 
+  // The integration refuses remote steps while the self-wash base works.
+  _baseBusy() {
+    const a = this.ctx?.attrs || {};
+    return !!(a.washing || a.drying);
+  }
+  _baseLabel() {
+    const st = this.ctx.st("sensor", "self_wash_base_status");
+    return (st ? this.ctx.stateLabel(st) : this.ctx.attrs.washing ? "washing" : "drying").toLowerCase();
+  }
+
   async _tick() {
-    if (this._inflight || this._halted) return;
+    if (this._inflight || this._halted || this._baseBusy()) return;
     const p = this._payload();
     if (p.velocity === 0 && p.rotation === 0) return;
     this._inflight = true;
@@ -393,6 +403,12 @@ class DocRemote extends LitElement {
         style="outline:none"
       >
         <doc-map .ctx=${c}></doc-map>
+        ${this._baseBusy()
+          ? html`<div class="warn">
+              <ha-icon icon="mdi:timer-sand"></ha-icon>
+              <span>The station is ${this._baseLabel()}. Remote control works again once it finishes.</span>
+            </div>`
+          : nothing}
         <div class="warn">
           <ha-icon icon="mdi:alert"></ha-icon>
           <span
