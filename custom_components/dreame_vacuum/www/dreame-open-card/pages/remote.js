@@ -271,14 +271,14 @@ class DocRemote extends LitElement {
     }
   }
 
-  // The integration refuses remote steps while the self-wash base works.
+  // The integration refuses remote steps while the base washes the mop
+  // (device.remote_control_move_step); drying does not block it.
   _baseBusy() {
-    const a = this.ctx?.attrs || {};
-    return !!(a.washing || a.drying);
+    return !!this.ctx?.attrs?.washing;
   }
   _baseLabel() {
     const st = this.ctx.st("sensor", "self_wash_base_status");
-    return (st ? this.ctx.stateLabel(st) : this.ctx.attrs.washing ? "washing" : "drying").toLowerCase();
+    return (st ? this.ctx.stateLabel(st) : "washing").toLowerCase();
   }
 
   async _tick() {
