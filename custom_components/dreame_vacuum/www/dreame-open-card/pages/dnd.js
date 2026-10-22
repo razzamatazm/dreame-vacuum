@@ -4,25 +4,22 @@
  * Multi-period models (capability "dnd_task"): vacuum attribute `dnd` is a
  * list of DNDTask dicts {id, enabled, start, end, repeats (bitmask), ss}.
  * Writes rewrite the whole list:
- *   dreame_vacuum.vacuum_set_property {key: "dnd_task", value: '[{"id":1,"en":1,"st":"22:00","et":"08:00","wk":127,"ss":0}]'}
+ *   dreame_vacuum.vacuum_set_property {key: "dnd_task", value: '[{"id":1,"en":true,"st":"22:00","et":"08:00","wk":127,"ss":0}]'}
  * (validated in DreameVacuumDevice.set_property_value: id >= 0, en in {0,1},
  *  st/et "HH:MM", wk int 1..127, ss >= -1). Deletes use
  *   dreame_vacuum.vacuum_call_action {key: "delete_dnd_task", value: "<id>"}.
- * `wk` bit i is WEEKDAYS[i] (bit 0 = Sunday), the card-wide convention; the
- * integration itself never interprets the bits. `ss` is opaque: preserved for
- * existing tasks, 0 for new ones (what set_dnd_tasks uses).
+ * The Dreame app only sets a time window and always writes wk 127 (every
+ * day), so the card has no day picker: `wk` is preserved as stored and new
+ * tasks get 127. `en` is a JSON boolean, as the app and the integration's own
+ * set_dnd_tasks write it; this robot (2026-10 live test) silently ignores a
+ * write with en 0/1. `ss` is opaque: preserved for existing tasks, 0 for new.
  *
  * Single-period models: switch.dnd + time.dnd_start / time.dnd_end rows.
  */
-import { LitElement, html, css, nothing, base, WEEKDAYS } from "../core.js";
+import { LitElement, html, css, nothing, base } from "../core.js";
 import { entityRows } from "../components.js";
-import { weekdayNames } from "./schedule.js";
 
 const EXTRA = ["switch.dnd_disable_resume_cleaning", "switch.dnd_disable_auto_empty", "switch.dnd_reduce_volume"];
-const MON_FIRST = [1, 2, 3, 4, 5, 6, 0];
-
-export const wkToDays = (wk) => WEEKDAYS.map((_, i) => !!(Number(wk) & (1 << i)));
-export const daysToWk = (days) => days.reduce((m, d, i) => (d ? m | (1 << i) : m), 0);
 
 /** Like dndToJson, but keeps any extra keys the device stores on each task. */
 export function mergeDndRaw(raw, tasks) {
@@ -48,20 +45,13 @@ export function dndToJson(tasks) {
   return JSON.stringify(
     tasks.map((t) => ({
       id: Number(t.id),
-      en: t.enabled ? 1 : 0,
+      en: !!t.enabled,
       st: t.start,
       et: t.end,
       wk: Number(t.repeats ?? 127),
       ss: Number(t.ss ?? 0),
     }))
   );
-}
-
-function wkSummary(ctx, wk) {
-  const days = wkToDays(wk);
-  if (days.every(Boolean)) return "Every day";
-  const names = weekdayNames(ctx);
-  return MON_FIRST.filter((i) => days[i]).map((i) => names[i]).join(", ");
 }
 
 class Dnd extends LitElement {
@@ -112,16 +102,6 @@ class Dnd extends LitElement {
       }
       .times input {
         font-size: 1.3em;
-      }
-      .days {
-        display: flex;
-        gap: 4px;
-        flex-wrap: wrap;
-      }
-      .days button {
-        flex: 1;
-        min-width: 44px;
-        padding: 6px 0;
       }
       .buttons {
         display: flex;
@@ -175,7 +155,6 @@ class Dnd extends LitElement {
       <div class="item ${t.enabled ? "" : "off"}">
         <div class="text">
           <div class="time">${t.start} - ${t.end}</div>
-          <div class="sub">${wkSummary(c, t.repeats ?? 127)}</div>
         </div>
         <span @pointerdown=${(e) => e.stopPropagation()}>
           <doc-toggle
@@ -189,12 +168,12 @@ class Dnd extends LitElement {
   }
 
   _open(t) {
-    this._edit = { isNew: false, task: { ...t }, days: wkToDays(t.repeats ?? 127) };
+    this._edit = { isNew: false, task: { ...t } };
   }
   _new() {
     const id = Math.max(0, ...this._tasks.map((t) => Number(t.id) || 0)) + 1;
     const task = { id, enabled: true, start: "22:00", end: "08:00", repeats: 127, ss: 0 };
-    this._edit = { isNew: true, task, days: wkToDays(127) };
+    this._edit = { isNew: true, task };
   }
 
   _sheet() {
@@ -202,9 +181,8 @@ class Dnd extends LitElement {
     if (!e) return nothing;
     const c = this.ctx;
     const t = e.task;
-    const names = weekdayNames(c, "short");
     const set = (patch) => (this._edit = { ...e, task: { ...t, ...patch } });
-    const error = t.start === t.end ? "Start and end must differ" : !e.days.some(Boolean) ? "Select at least one day" : "";
+    const error = t.start === t.end ? "Start and end must differ" : "";
     return html`<doc-sheet
       open
       heading=${e.isNew ? c.t("action", "new_dnd", "New Dnd task") : c.t("title", "dnd_task", "DnD Task")}
@@ -220,20 +198,6 @@ class Dnd extends LitElement {
           <span>-</span>
           <input type="time" class="end" .value=${t.end} @change=${(ev) => ev.target.value && set({ end: ev.target.value.slice(0, 5) })} />
         </div>
-        <div>
-          <div class="sub">${c.t("action", "repeats", "Repeats")}</div>
-          <div class="days">
-            ${MON_FIRST.map(
-              (i) => html`<button
-                class=${e.days[i] ? "active" : ""}
-                data-day=${WEEKDAYS[i]}
-                @click=${() => (this._edit = { ...e, days: e.days.map((d, j) => (j === i ? !d : d)) })}
-              >
-                ${names[i]}
-              </button>`
-            )}
-          </div>
-        </div>
         ${error ? html`<div class="err">${error}</div>` : nothing}
         <div class="buttons">
           ${e.isNew ? nothing : html`<button class="danger" @click=${() => this._delete(t)}>${c.t("action", "delete", "Delete")}</button>`}
@@ -246,8 +210,8 @@ class Dnd extends LitElement {
   }
 
   async _save() {
-    const { isNew, task, days } = this._edit;
-    const next = { ...task, repeats: daysToWk(days) };
+    const { isNew, task } = this._edit;
+    const next = { ...task, repeats: task.repeats ?? 127 };
     const tasks = isNew ? [...this._tasks, next] : this._tasks.map((x) => (x.id === task.id ? next : x));
     if (await this._write(tasks)) this._edit = null;
   }
