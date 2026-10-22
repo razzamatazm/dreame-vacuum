@@ -9,6 +9,7 @@ from homeassistant.helpers.typing import ConfigType
 import warnings
 from importlib import import_module
 from .const import DOMAIN
+from . import open_card
 
 ## Dynamically load frontend.py so that it can be easily stripped
 try:
@@ -48,8 +49,10 @@ CONFIG_SCHEMA = cv.config_entry_only_config_schema(DOMAIN)
 
 async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
     """Set up the Dreame Vacuum integration."""
-    if frontend is not None and hass.config_entries.async_entries(DOMAIN):
-        await frontend.setup(hass)
+    if hass.config_entries.async_entries(DOMAIN):
+        await open_card.setup(hass)
+        if frontend is not None:
+            await frontend.setup(hass)
     return True
 
 
