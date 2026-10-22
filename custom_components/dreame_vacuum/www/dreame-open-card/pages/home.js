@@ -860,9 +860,14 @@ class DocHome extends LitElement {
   async _start() {
     const ctx = this.ctx;
     const repeats = this._repeats;
+    // With customized cleaning on, empty lists make device.clean_segment fall
+    // back to each room's own settings; a scalar would override every room.
+    const perRoom = ctx.st("switch", "customized_cleaning")?.state === "on"
+      ? { repeats: [], suction_level: [], water_volume: [] }
+      : { repeats };
     const calls = {
       global: () => ctx.vacuumCmd("start"),
-      rooms: () => ctx.vac("vacuum_clean_segment", { segments: [...this._rooms], repeats }),
+      rooms: () => ctx.vac("vacuum_clean_segment", { segments: [...this._rooms], ...perRoom }),
       zone: () => ctx.vac("vacuum_clean_zone", { zone: this._zones.map((z) => normRect(z).slice(0, 4).map(Math.round)), repeats }),
       spot: () => ctx.vac("vacuum_clean_spot", { points: this._spots.map((p) => p.map(Math.round)), repeats }),
       goto: () => ctx.vac("vacuum_goto", { x: this._goto[0], y: this._goto[1] }),
